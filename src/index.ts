@@ -225,6 +225,10 @@ const DeleteEmailSchema = z.object({
     messageId: z.string().describe("ID of the email message to delete"),
 });
 
+const DeleteDraftSchema = z.object({
+    draftId: z.string().describe("ID of the draft to delete"),
+});
+
 // New schema for listing email labels
 const ListEmailLabelsSchema = z.object({}).describe("Retrieves all available Gmail labels");
 
@@ -372,6 +376,11 @@ async function main() {
                 name: "delete_email",
                 description: "Permanently deletes an email",
                 inputSchema: zodToJsonSchema(DeleteEmailSchema),
+            },
+            {
+                name: "delete_draft",
+                description: "Permanently deletes a draft",
+                inputSchema: zodToJsonSchema(DeleteDraftSchema),
             },
             {
                 name: "list_email_labels",
@@ -756,6 +765,41 @@ async function main() {
                             {
                                 type: "text",
                                 text: `Email ${validatedArgs.messageId} deleted successfully`,
+                            },
+                        ],
+                    };
+                }
+
+                case "delete_draft": {
+                    const validatedArgs = DeleteDraftSchema.parse(args);
+                    const draftsResponse = await gmail.users.drafts.list({
+                        userId: 'me',
+                    });
+
+                    const drafts = draftsResponse.data.drafts || [];
+                    const draft = drafts.find(d => d.id === validatedArgs.draftId || d.message?.id === validatedArgs.draftId);
+
+                    if (!draft || !draft.id) {
+                        return {
+                            content: [
+                                {
+                                    type: "text",
+                                    text: `Draft not found: ${validatedArgs.draftId}`,
+                                },
+                            ],
+                        };
+                    }
+
+                    await gmail.users.drafts.delete({
+                        userId: 'me',
+                        id: draft.id,
+                    });
+
+                    return {
+                        content: [
+                            {
+                                type: "text",
+                                text: `Draft ${draft.id} deleted successfully`,
                             },
                         ],
                     };
